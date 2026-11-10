@@ -30,7 +30,7 @@ cd ~/mocap_ws
 `run.sh` 默认读取 `src/fzmotion_ros/config/fzmotion.yaml`，命令行参数优先：
 
 ```bash
-./run.sh --ros-args -p ip:=169.254.209.149 -p rigid_name:=main
+./run.sh --ros-args -p ip:=169.254.209.149 -p box.rigid_name:=box -p robot.rigid_name:=robot -p target.rigid_name:=target
 ./run.sh --ros-args -p yaw_offset_deg:=90.0
 # 也可以选其他 YAML：
 FZMOTION_CONFIG=/absolute/path/to/config.yaml ./run.sh
@@ -72,14 +72,14 @@ mocap_ws/
 
 | 话题(默认) | 类型 | header.frame_id | 内容 |
 |---|---|---|---|
-| `/fzmotion/pose` | `geometry_msgs/PoseStamped` | `world` | 位置 + 姿态 |
-| `/fzmotion/velocity` | `geometry_msgs/TwistStamped` | `world` | 线速度(`linear`) + 角速度(`angular`) |
-| `/fzmotion/acceleration` | `geometry_msgs/AccelStamped` | `world` | 线加速度 + 角加速度 |
+| `/fzmotion/box/pose` | `geometry_msgs/PoseStamped` | `world` | 位置 + 姿态 |
+| `/fzmotion/box/velocity` | `geometry_msgs/TwistStamped` | `world` | 线速度(`linear`) + 角速度(`angular`) |
+| `/fzmotion/box/acceleration` | `geometry_msgs/AccelStamped` | `world` | 线加速度 + 角加速度 |
 | `/tf` | `tf2` | `world`→`<rigid名>` | 刚体位姿 |
 
 - `frame_id` 由参数 `frame_id` 决定（默认 `world`，可改 `map`）。
 - 只有**刚体(RigidBody)**有速度/加速度；散点(marker)、骨骼没有这些字段。
-- 多刚体时用 `rigid_name` 选（默认 `main`）。
+- 同时发布 box、robot、target；名称分别由 `<role>.rigid_name` 设置。上表以 box 为例，robot 和 target 有同样三种话题。
 
 ---
 
@@ -99,7 +99,7 @@ FZMotion SDK 给出的各量单位/坐标系，以及本包发布到 ROS 后的�
 关键点：
 
 - **位置/线速度/线加速度** 在 SDK 里已经是 **FZ 世界系**，只需做轴映射（+位置 mm→m）。
-- **角速度/角加速度** 在 SDK 里是 **刚体自身系(body frame)**，发布前先用刚体姿态转到世界系（`quat_rotate`），再做轴映射。因此 `/fzmotion/velocity`、`/fzmotion/acceleration` 的 `angular` 最终与 `linear` 一样是**世界系**，整个消息自洽。
+- **角速度/角加速度** 在 SDK 里是 **刚体自身系(body frame)**，发布前先用刚体姿态转到世界系（`quat_rotate`），再做轴映射。因此 `/fzmotion/box/velocity`、`/fzmotion/box/acceleration` 的 `angular` 最终与 `linear` 一样是**世界系**，整个消息自洽。
 - 位置 mm→m 用 `pos_scale`；速度/加速度数值已经是 SI，默认不缩放（`*_scale=1.0`）。
 
 处理流水线（每帧）：
@@ -140,7 +140,7 @@ R_ros = R_map · R_fz · R_mapᵀ        （姿态用相似变换）
 
 > 无论哪种，**FZ 的 Y(Up) 永远变成 ROS 的 z(上)**。
 
-**怎么定 θ（不用猜）**：把 `main` 刚体沿你心里的"前方"推/走约 1 m，看 `/fzmotion/pose` 的 `position.x` 是否增大：
+**怎么定 θ（不用猜）**：把 `box` 刚体沿你心里的"前方"推/走约 1 m，看 `/fzmotion/box/pose` 的 `position.x` 是否增大：
 - `x` 增大 → 情况 A，`yaw_offset_deg:=0.0`（默认）
 - `y` 变化、x 不动 → 前方是 FZ 的 ±Z，用 `+90` 或 `−90`
 - 或用 rviz2 / `tf2_echo` 对照实物方向微调
@@ -167,24 +167,24 @@ source ~/mocap_ws/source_jazzy.sh
 
 # 列话题 / 看发布者
 ros2 topic list
-ros2 topic info /fzmotion/pose
+ros2 topic info /fzmotion/box/pose
 
 # 看数据
-ros2 topic echo /fzmotion/pose
-ros2 topic echo /fzmotion/velocity        # linear=线速度  angular=角速度
-ros2 topic echo /fzmotion/acceleration    # linear=线加速度 angular=角加速度
+ros2 topic echo /fzmotion/box/pose
+ros2 topic echo /fzmotion/box/velocity        # linear=线速度  angular=角速度
+ros2 topic echo /fzmotion/box/acceleration    # linear=线加速度 angular=角加速度
 
 # 频率取决于发送端帧率与 poll_rate；本地 mock 为 50 Hz
-ros2 topic hz /fzmotion/pose
+ros2 topic hz /fzmotion/box/pose
 
 # 看 TF 位姿
-ros2 run tf2_ros tf2_echo world main
+ros2 run tf2_ros tf2_echo world box
 ```
 
 提示：
 - `ros2 topic echo --once` 偶尔报 `does not appear to be published yet / Could not determine the type`，是 DDS 发现时序，**重跑一次**即可（尤其节点刚启动时）。
 - 电脑和机器人以及所有查看 topic 的终端必须使用相同 `ROS_DOMAIN_ID` 与兼容的 QoS。可在两端启动节点前显式 `export ROS_DOMAIN_ID=0`；脚本不会覆盖已设置的 domain。
-- 同一组输出 topic 只启动一个采集节点；多个发布者会导致消息混合，可用 `ros2 topic info -v /fzmotion/pose` 检查。
+- 同一组输出 topic 只启动一个采集节点；多个发布者会导致消息混合，可用 `ros2 topic info -v /fzmotion/box/pose` 检查。
 
 ---
 
@@ -222,10 +222,9 @@ cd ~/mocap_ws/py
 | `vel_scale` | `1.0` | 线速度缩放（SDK 已是 m/s）|
 | `acc_scale` | `1.0` | 线加速度缩放（m/s²）|
 | `ang_scale` | `1.0` | 角速度/角加速度缩放（rad/s, rad/s²）|
-| `rigid_name` | `main` | 发布哪个刚体；`""`=第一个 tracked |
-| `pose_topic` | `fzmotion/pose` | 位姿话题 |
-| `vel_topic` | `fzmotion/velocity` | 速度话题 |
-| `accel_topic` | `fzmotion/acceleration` | 加速度话题 |
+| `box.rigid_name` / `box.topic_prefix` | `box` / `/fzmotion/box` | 箱子刚体名称及三种消息前缀 |
+| `robot.rigid_name` / `robot.topic_prefix` | `robot` / `/fzmotion/robot` | 机器人刚体名称及消息前缀 |
+| `target.rigid_name` / `target.topic_prefix` | `target` / `/fzmotion/target` | 放置目标刚体名称及消息前缀 |
 | `publish_tf` | `true` | 是否发 world→刚体 TF |
 | `apply_axis_map` | `true` | Y-up→Z-up 轴映射开关 |
 | `yaw_offset_deg` | `0.0` | 前方偏角 θ（0 / +90 / −90）|
@@ -242,7 +241,7 @@ cd ~/mocap_ws/py
 
 ## 8. 回归测试 / 自检
 
-自动检查三个入口（`run.sh` / `ros2 run` / `ros2 launch`）、YAML/命令行覆盖、
+自动检查 box/robot/target 同时发布及独立掉线、仅位置 target、三个入口（`run.sh` / `ros2 run` / `ros2 launch`）、YAML/命令行覆盖、
 位姿与速度/加速度数值、TF、同帧时间戳、跟踪丢失/坏包恢复及 Ctrl+C 正常退出：
 
 ```bash
@@ -268,7 +267,7 @@ cd ~/mocap_ws
 
 # 终端3：查看，应精确等于期望值（见 mock_pub.py 顶部注释）
 source ~/mocap_ws/source_jazzy.sh
-ros2 topic echo /fzmotion/velocity --once
+ros2 topic echo /fzmotion/box/velocity --once
 ```
 
 `axis_map.py` 也可单独做纯数值验证（导入 `fz_vec_to_ros` / `fz_quat_to_ros` / `quat_rotate`）。
@@ -296,15 +295,38 @@ ros2 topic echo /fzmotion/velocity --once
 - 角速度/角加速度已从 body 系转到世界系发布；若下游需要 **base_link/body 系**的角速度，需再乘 `R_world_body⁻¹`，可另开话题。
 - 坐标换算集中在 `axis_map.py`（纯函数，无 ROS 依赖），便于单测与复用。
 
-## 11. 电脑转发到机器人 / I-BFM 接口
+## 11. 三刚体与 deploy_g1 偏置配置
 
-- 电脑运行本工作区；机器人在 Jazzy 容器内直接订阅 `/fzmotion/pose` 和 `/fzmotion/velocity`。
-  同步 domain、RMW、消息类型和 QoS，并配置能到达对端的 DDS 网卡。容器使用 host 网络。
-- 保留当前可靠传输、队列深度 10 的发布 QoS；不会因迁移而改变既有订阅兼容性。
-- `frame_id=world` 是坐标系名称，不会自动完成空间标定。箱子、机器人基座和目标需要统一坐标与刚体标记偏移。
-- 真实设备使用 `use_sim_time=false`（默认）。电脑和机器人需同步系统时钟。
-  **当前消息时间戳是电脑接收并处理该帧时的 ROS 时间**，不是动捕硬件采样时间；
-  SDK 时间戳与 ROS 时钟尚未做标定。因此只看消息时间戳不能推断完整的采集延迟。
-- 没有数据或 `IsTrack=false` 时不发布旧数据；损坏的 protobuf 包会跳过并告警。
-  当前下游 I-BFM 默认输入时间匹配容差为 30 ms，需实测发送频率、时钟偏差和网络抖动。
-- 本次只适配动捕工作区；I-BFM 的真实基座状态、接触估计和真机启用仍需另行接入。
+一个节点同时从同一 SDK 帧获取 `box`、`robot`、`target`，共用同一个 ROS 接收时间戳。
+每个刚体发布 `/fzmotion/<名称>/pose`、`/velocity`、`/acceleration` 和 world 到该刚体的 TF。
+只选择配置名称且 `IsTrack=true` 的刚体；一个刚体掉线、无效或缺失不会影响另外两个。
+无新数据不会重发旧数据。target 只有有效 XYZ 时仍发布 pose，其无效姿态用零四元数表示。
+
+在动捕软件中设置：
+
+| 刚体 | 理想参考原点 | 下游需要的信息 |
+|---|---|---|
+| `box` | 箱子顶部中心；x 长 0.24 m、y 宽 0.26 m、z 高 0.36 m 朝上 | 位姿、线/角速度持续更新 |
+| `robot` | pelvis 原点及坐标轴 | 位姿、线/角速度持续更新 |
+| `target` | 放置表面上的箱底中心目标 | 切入 I-BFM 时一次位置，忽略姿态与速度 |
+
+默认名称及 topic 前缀在 [fzmotion.yaml](src/fzmotion_ros/config/fzmotion.yaml) 中配置：
+
+```bash
+./run.sh --ros-args -p box.rigid_name:=box -p robot.rigid_name:=robot -p target.rigid_name:=target
+```
+
+**实际标记安装偏置集中在 deploy_g1 的 `bridge_controllers/config/ibfm/tracking.yaml`，本工作区不重复补偿。**
+box/robot 配置局部 `translation`（m）和 `rotation_wxyz`；下游同时修正参考点位置、姿态及线速度。
+target 用世界系 `translation_world`，避免依赖目标姿态。
+例如 target 标记比放置表面高 2 cm，偏置设 `[0,0,-0.02]`。
+理想最终箱子顶部与修正后 target 的 XY 重合，顶部 Z 比 target 高 0.36 m。
+目标在 I-BFM 每次激活的新 session 开始时锁定；切入后移动/移除 target 不改变本次目标。
+切入时缺失或过旧的目标会拒绝动作，需要恢复追踪后切出再切入。
+
+电脑负责运行本工作区，机器人侧订阅同名话题。两端需统一 ROS domain、RMW、消息类型、QoS，
+配置可达的 DDS 网卡并同步系统时钟，容器使用 host 网络。
+真实数据用 `use_sim_time=false`；时间戳仍是电脑接收/处理时刻，尚未标定 SDK 采样时钟。
+默认发布可靠 QoS、深度 10，频率取决于动捕数据源，下游 box/robot 时间匹配容差默认 30 ms。
+`frame_id=world` 只命名坐标系，不会替代空间标定。
+I-BFM 当前仍限定 MuJoCo；真机启用、手部接触估计、真实重量和跨机延迟仍需后续验证。

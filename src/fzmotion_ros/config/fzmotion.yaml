@@ -7,10 +7,16 @@ fzmotion_node:
     vel_scale: 1.0            # linear velocity already m/s
     acc_scale: 1.0            # linear acceleration already m/s^2
     ang_scale: 1.0            # angular velocity/accel already rad/s, rad/s^2
-    rigid_name: "main"        # publish this rigid body; "" = first tracked
-    pose_topic: "/fzmotion/pose"
-    vel_topic: "/fzmotion/velocity"
-    accel_topic: "/fzmotion/acceleration"
+    # 原始刚体信息，不做物理参考点偏移；偏置统一在 deploy_g1 tracking.yaml 中配置。
+    box:
+      rigid_name: "box"       # 原点：箱子顶部中心；物理尺寸 0.24 x 0.26 x 0.36 m
+      topic_prefix: "/fzmotion/box"
+    robot:
+      rigid_name: "robot"     # 理想原点和坐标轴：pelvis
+      topic_prefix: "/fzmotion/robot"
+    target:
+      rigid_name: "target"    # 原点：放置表面上的箱底中心目标
+      topic_prefix: "/fzmotion/target"
     publish_tf: true
     apply_axis_map: true      # FZ Y-up -> ROS Z-up
     yaw_offset_deg: 0.0       # FZ +X vs ROS +X heading

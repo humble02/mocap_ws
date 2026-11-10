@@ -7,7 +7,7 @@ This mock uses a NON-identity body orientation to exercise the body->world
 rotation of the angular quantities:
   q_fz = +90 deg about FZ-Y (up):  (0, sin45, 0, cos45) = (0, .7071, 0, .7071)
 
-Input (constant frame, rigid 'main'):
+Input (constant frame, rigids 'box', 'robot', 'target'):
   pos(mm, world)          = (1000, 2000, 3000)
   q_fz                    = (0, 0.70710678, 0, 0.70710678)
   speed(m/s, world)       = (0.5, 1.0, 1.5)
@@ -37,7 +37,7 @@ f = pb.Frame()
 f.FrameId = 1
 r = f.rigidBodys.add()
 r.Id = 1
-r.Name = "main"
+r.Name = "box"
 r.IsTrack = True
 r.X, r.Y, r.Z = 1000.0, 2000.0, 3000.0
 s = math.sin(math.radians(45.0))
@@ -52,6 +52,13 @@ r.acceleratedSpeeds.ZfAcceleratedSpeed = 30.0
 r.accpalstance.AccfXPalstance = 0.0
 r.accpalstance.AccfYPalstance = 0.0
 r.accpalstance.AccfZPalstance = 2.0
+
+for index, name in enumerate(('robot', 'target'), start=2):
+    other = f.rigidBodys.add()
+    other.CopyFrom(r)
+    other.Id = index
+    other.Name = name
+    other.X += 1000 * (index - 1)
 
 data = f.SerializeToString()
 print("mock PUB on :%d (non-identity body orientation)" % port)
