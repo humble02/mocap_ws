@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>fzmotion_ros</name>
+  <version>0.2.0</version>
+  <description>Receive FZMotion rigid body pose over LuMoSDK ZMQ and publish ROS 2 topics / tf</description>
+  <maintainer email="sym@todo.todo">sym</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>ros2launch</exec_depend>
+  <exec_depend>python3-zmq</exec_depend>
+  <!-- protobuf==3.20.3 is installed by setup_jazzy.sh for the vendor schema. -->
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

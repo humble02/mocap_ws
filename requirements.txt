@@ -1,0 +1,6 @@
+# Jazzy uses system Python 3.12. Install only inside env_jazzy.
+# Keep NumPy 1.x for Ubuntu 24.04's compiled ROS dependencies.
+numpy==1.26.4
+# The vendor's generated protobuf file uses the legacy descriptor API.
+protobuf==3.20.3
+pyzmq==27.3.0

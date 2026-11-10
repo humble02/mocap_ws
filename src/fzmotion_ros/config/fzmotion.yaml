@@ -1,0 +1,17 @@
+fzmotion_node:
+  ros__parameters:
+    ip: "169.254.209.149"
+    port: 6868
+    frame_id: "world"
+    pos_scale: 0.001          # position: mm -> m
+    vel_scale: 1.0            # linear velocity already m/s
+    acc_scale: 1.0            # linear acceleration already m/s^2
+    ang_scale: 1.0            # angular velocity/accel already rad/s, rad/s^2
+    rigid_name: "main"        # publish this rigid body; "" = first tracked
+    pose_topic: "/fzmotion/pose"
+    vel_topic: "/fzmotion/velocity"
+    accel_topic: "/fzmotion/acceleration"
+    publish_tf: true
+    apply_axis_map: true      # FZ Y-up -> ROS Z-up
+    yaw_offset_deg: 0.0       # FZ +X vs ROS +X heading
+    poll_rate: 200.0

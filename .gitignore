@@ -1,0 +1,17 @@
+# ROS / colcon build outputs
+/build/
+/build_*/
+/install/
+/install_*/
+/log/
+/log_*/
+
+# Local Python environments and caches
+/env/
+/env_*/
+/.venv/
+/venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
